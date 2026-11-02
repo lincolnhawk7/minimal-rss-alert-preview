@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSS Feed Widget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: transparent;
+            color: #37352f;
+        }
+
+        .font-serif-journal {
+            font-family: 'Newsreader', serif;
+        }
+    </style>
+</head>
+<body class="p-6 flex items-center justify-start min-h-screen">
+
+    <div class="w-full max-w-lg space-y-4">
+        <!-- Header -->
+        <div class="flex justify-between items-center border-b border-stone-200 dark:border-stone-800 pb-2">
+            <span class="text-xs font-semibold uppercase tracking-widest text-stone-400">RSS / NOTIZIE</span>
+            <span id="updateTime" class="text-xs font-serif-journal italic text-stone-400">Aggiornato</span>
+        </div>
+
+        <!-- Topic Buttons Container -->
+        <div id="topicButtons" class="flex flex-wrap gap-2"></div>
+
+        <!-- RSS Feed Content List -->
+        <div id="rssContent" class="space-y-3 py-1">
+            <p class="text-xs font-serif-journal italic text-stone-400">Caricamento notizie...</p>
+        </div>
+    </div>
+
+    <script>
+        // HARDCODE YOUR GOOGLE ALERTS RSS FEEDS HERE
+        const rssFeeds = [
+            {
+                name: "NewMusic",
+                url: "https://www.google.de/alerts/feeds/11917226148118527564/17609417672944454167" 
+            },
+            {
+                name: "Heise Security",
+                url: "https://www.heise.de/security/feed.xml"
+            },
+            {
+                name: "Welt",
+                url: "https://www.welt.de/feeds/latest.rss"
+            }
+        ];
+
+        let activeFeedIndex = 0;
+
+        function renderTopicButtons() {
+            const container = document.getElementById('topicButtons');
+            container.innerHTML = rssFeeds.map((feed, idx) => {
+                const isActive = idx === activeFeedIndex;
+                const activeClasses = isActive 
+                    ? "bg-stone-800 text-stone-100 font-medium" 
+                    : "bg-stone-100 text-stone-500 hover:bg-stone-200 hover:text-stone-700";
+                
+                return `
+                    <button 
+                        onclick="switchFeed(${idx})" 
+                        class="px-2.5 py-1 text-xs tracking-wide rounded-md transition-colors ${activeClasses}">
+                        ${feed.name}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        async function fetchRssFeed(url) {
+            const rssContent = document.getElementById('rssContent');
+            rssContent.innerHTML = '<p class="text-xs font-serif-journal italic text-stone-400">Caricamento notizie...</p>';
+
+            try {
+                // Using rss2json service to convert XML RSS to JSON and bypass browser CORS
+                const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                if (data && data.status === 'ok' && data.items.length > 0) {
+                    renderArticles(data.items.slice(0, 4)); // Show top 4 articles
+                } else {
+                    throw new Error("No feed items");
+                }
+            } catch (err) {
+                console.error("RSS Fetch Error:", err);
+                rssContent.innerHTML = '<p class="text-xs font-serif-journal italic text-stone-400">Nessuna notizia disponibile per questo feed.</p>';
+            }
+        }
+
+        function renderArticles(items) {
+            const rssContent = document.getElementById('rssContent');
+            
+            rssContent.innerHTML = items.map(item => {
+                // Clean HTML tags from Google Alerts summaries
+                const cleanSnippet = item.description ? item.description.replace(/<[^>]*>?/gm, '').slice(0, 120) + '...' : '';
+                const pubDate = new Date(item.pubDate).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+
+                return `
+                    <div class="space-y-1 border-b border-stone-200/60 pb-2.5 last:border-none">
+                        <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="group block">
+                            <h4 class="text-sm font-serif-journal font-normal text-stone-900 group-hover:text-stone-600 transition-colors leading-snug">
+                                ${item.title}
+                            </h4>
+                        </a>
+                        ${cleanSnippet ? `<p class="text-xs font-serif-journal italic text-stone-500 leading-snug">${cleanSnippet}</p>` : ''}
+                        <p class="text-[10px] font-sans tracking-wide text-stone-400 pt-0.5">${pubDate}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function switchFeed(index) {
+            activeFeedIndex = index;
+            renderTopicButtons();
+            fetchRssFeed(rssFeeds[index].url);
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            renderTopicButtons();
+            fetchRssFeed(rssFeeds[0].url);
+        };
+    </script>
+</body>
+</html>
